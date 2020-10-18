@@ -17,6 +17,7 @@ import json
 import pickle
 
 import lib.pretrained_networks
+from lib.pretrained_networks import load_networks
 from lib.gan_utility_functions import generate_images_from_seeds
 from flask import Flask, jsonify, request
 
@@ -48,16 +49,18 @@ pre_trained_gans = [
 ]
 
 def loadPretrainedGan(gan_name):
-    for model in pre_trained_gans:
-        if(gan_name == model["gan_name"]):
-            return model["url"]
+    for i, model in enumerate(pre_trained_gans):
+        if(gan_name == model["name"]):
+            print('Loading networks from "%s"...' % model["url"])
+            _G, _D, Gs = load_networks(model["url"])
+            noise_vars = [var for name, var in Gs.components.synthesis.vars.items() if name.startswith('noise')]
 
 def from_pil_to_base64_json(pil_image_list):
     base64img_prefix = "data:image/png;base64,"
     final_json = {"images":[]}
 
     for i, image in enumerate(pil_image_list):
-      image.thumbnail((256,256), Image.ANTIALIAS)
+      image.thumbnail((128,128), Image.ANTIALIAS)
       buffered = BytesIO()
       image.save(buffered, format="PNG")
       img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
@@ -74,7 +77,6 @@ def listPretrainedGans():
 
 @app.route('/randomImages')
 def randomImages():
-    print(request.args)
     if 'gan_name' in request.args:
         gan_name = str(request.args['gan_name'])
     else:
@@ -83,14 +85,27 @@ def randomImages():
         number_of_images = int(request.args['number_of_images'])
     else:
         return "Error: No number_of_images provided. Please specify it."    
-
-    
-    
+    print(gan_name)
+    loadPretrainedGan(gan_name)
     seeds = np.random.randint(10000000, size=number_of_images)
+
     image_list_from_seed = generate_images_from_seeds(seeds, 0.7)
     json_data = from_pil_to_base64_json(image_list_from_seed)
     
     return jsonify(json_data)
+
+@app.route('/get2dMapFromSeeds')
+def get2dMapFromSeeds():
+    if 'gan_name' in request.args:
+        gan_name = str(request.args['gan_name'])
+    else:
+        return "Error: No gan_name provided. Please specify it."
+    if 'seeds' in request.args:
+        seeds = request.args['seeds']
+    else:
+        return "Error: No seeds provided. Please specify it."    
+
+
 
 # The following is for running command `python app.py` in local development, not required for serving on FloydHub.
 if __name__ == "__main__":
