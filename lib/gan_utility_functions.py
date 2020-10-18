@@ -14,7 +14,8 @@ import imageio
 
 import json
 
-import pretrained_networks
+from lib.pretrained_networks import load_networks
+
 
 # Choose between these pretrained models - I think 'f' is the best choice:
 
@@ -24,23 +25,24 @@ import pretrained_networks
 # network_pkl = "/content/drive/My Drive/GAN/stylegan2-ffhq-config-f.pkl"
 
 # brains
-brain_network_pkl = 'pretrained_models/brains/network-snapshot-010368.pkl'
+brain_network_pkl = '../input/gan_pre_trained/brains/network-snapshot-010368.pkl'
 # masks
-mask_network_pkl = 'pretrained_models/masks/network-snapshot-010450.pkl'
+mask_network_pkl = '../input/gan_pre_trained/masks/network-snapshot-010450.pkl'
 # old_photos
-photos_network_pkl = 'pretrained_models/old_photos/network-snapshot-010491.pkl'
+photos_network_pkl = '../input/gan_pre_trained/old_photos/network-snapshot-010491.pkl'
 # chineses_portraits
-chinese_network_pkl = 'pretrained_models/portraits_chinois/network-snapshot-010397.pkl'
+chinese_network_pkl = '../input/gan_pre_trained/portraits_chinois/network-snapshot-010397.pkl'
 # sneakers
-sneakers_network_pkl = 'pretrained_models/sneakers/network-snapshot-010696.pkl'
+sneakers_network_pkl = '../input/gan_pre_trained/sneakers/network-snapshot-010696.pkl'
 # earth
-earth_network_pkl = 'pretrained_models/terre/network-snapshot-010163.pkl'
+earth_network_pkl = '../input/gan_pre_trained/terre/network-snapshot-010163.pkl'
 
 network_pkl = mask_network_pkl
 
 print('Loading networks from "%s"...' % network_pkl)
-_G, _D, Gs = pretrained_networks.load_networks(network_pkl)
+_G, _D, Gs = load_networks(network_pkl)
 noise_vars = [var for name, var in Gs.components.synthesis.vars.items() if name.startswith('noise')]
+
 
 
 # Generates a list of images, based on a list of latent vectors (Z), and a list (or a single constant) of truncation_psi's.
