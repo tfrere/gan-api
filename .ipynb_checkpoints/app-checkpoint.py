@@ -42,7 +42,8 @@ def randomImages():
         number_of_images = int(request.args['number_of_images'])
     else:
         return "Error: No number_of_images provided. Please specify it."    
-    print(gan_name)
+    print("for " + str(gan_name))
+    print("with number of images -> " + str(number_of_images))
     GanObject.load_network(gan_name)
     seeds = np.random.randint(10000000, size=number_of_images)
 
@@ -59,6 +60,10 @@ def get2dMapFromSeeds():
         gan_name = str(request.args['gan_name'])
     else:
         return "Error: No gan_name provided. Please specify it."
+    if 'size_of_canvas' in request.args:
+        size_of_canvas = int(request.args['size_of_canvas'])
+    else:
+        return "Error: No gan_name provided. Please specify it."
     if 'seeds' in request.args:
         seeds = request.args.getlist('seeds')
     else:
@@ -71,11 +76,13 @@ def get2dMapFromSeeds():
     seeds = list(map(int, seeds))
     print("with seeds ->")
     print(seeds)
-
+    print("with size of canvas ->")
+    print(size_of_canvas)
+    
     image_list_from_seed, zs = GanObject.get_images_from_seeds(0.7, seeds)
     
-    coords_to_test = [[0.701, 1.14],[1.16, 1.02],[1.23, 0.54],[0.71, 0.25],[0.22, 0.53],[0.29, 1.05]]
-    result = GanObject.getImagesPointsFromDataset(25, coords_to_test, zs)
+    coords_to_test = [[0.71, 1.14],[1.16, 1.02],[1.23, 0.54],[0.71, 0.25],[0.22, 0.53],[0.29, 1.05]]
+    result = GanObject.getImagesPointsFromDataset(size_of_canvas, coords_to_test, zs)
     
     images = []
     for i, image in enumerate(result):
@@ -113,7 +120,10 @@ def get2dMapFromSeeds():
     for index, image in enumerate(final_json["images"]):
         print("Getting differences for neighbors -> " + str(index) + " / " + str(sizeOfDataSet))
         final_json["differenceRatios"].append(compareWithNeighborsFrom2dArray(two_dimensional_array, index, verbose=False))
-
+    
+    # for debugging purpose, we can hide images base64 hash to avoid flooding the shell
+    # final_json["images"] = []
+    
     return jsonify(final_json)
 
 # The following is for running command `python app.py` in local development, not required for serving on FloydHub.

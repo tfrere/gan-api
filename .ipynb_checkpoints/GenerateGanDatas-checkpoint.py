@@ -15,6 +15,7 @@ import math
 class GenerateGanDatas():
     def __init__(self, name):
         tflib.init_tf()
+        self.name = name
         self.pre_trained_gans = [
             {
                 "name": "brains",
@@ -29,7 +30,7 @@ class GenerateGanDatas():
                 "url": '../input/gan_pre_trained/new_masks/network-snapshot-010450.pkl'
             },
             {
-                "name": "old_photos",
+                "name": "old-photos",
                 "url": '../input/gan_pre_trained/old_photos/network-snapshot-010491.pkl'
             },
             {
@@ -45,7 +46,6 @@ class GenerateGanDatas():
                 "url": '../input/gan_pre_trained/terre/network-snapshot-010163.pkl'
             },
         ]
-        print(name)
         self.load_network(name)
 
     def get_pretrained_gan_url_from_name(self, gan_name):
@@ -54,16 +54,16 @@ class GenerateGanDatas():
                 return model["url"]
 
     def load_network(self, gan_name):
-        model_url = '../input/gan_pre_trained/terre/network-snapshot-010163.pkl'
-        model_url = self.get_pretrained_gan_url_from_name(gan_name)
-        stream = open(model_url, 'rb')
-        with stream:
-            self.G, self.D, self.Gs = pickle.load(stream, encoding='latin1')
-        self.noise_vars = [var for name, var in self.Gs.components.synthesis.vars.items() if name.startswith('noise')]
+        if(self.name != gan_name):
+            model_url = '../input/gan_pre_trained/terre/network-snapshot-010163.pkl'
+            model_url = self.get_pretrained_gan_url_from_name(gan_name)
+            stream = open(model_url, 'rb')
+            with stream:
+                self.G, self.D, self.Gs = pickle.load(stream, encoding='latin1')
+            self.noise_vars = [var for name, var in self.Gs.components.synthesis.vars.items() if name.startswith('noise')]
 
     @staticmethod
     def from_pil_to_base64_json(pil_image_list):
-        print(pil_image_list)
         base64img_prefix = "data:image/png;base64,"
         final_json = {"images":[]}
 
@@ -146,9 +146,6 @@ class GenerateGanDatas():
 
     def getImagesPointsFromDataset(self, numberOfImages, locations, baseImagesDatas):
         
-#       print("TOTOTOOO")
-#       print(numberOfImages, locations)
-
       pointLocationForImages = []
 
       heightOfCanvas = 1.3
@@ -156,20 +153,14 @@ class GenerateGanDatas():
 
       arrayOfLatent = []
       columns = int(math.sqrt(numberOfImages))
-#       print("columns -> ", columns)
 
       spbc = widthOfCanvas / columns
       spbl = heightOfCanvas / columns
-
-    
-#       print("1")
 
       for i in range(columns):
         for j in range(columns):
           self.storeCoordinate(i * spbc, j * spbl, pointLocationForImages)
 
-#       print("625 -> ", len(pointLocationForImages))
-        
       for i, point in enumerate(pointLocationForImages):
         pointP = [point["x"], point['y']]
         rawDistances = []
