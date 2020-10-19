@@ -15,68 +15,25 @@ import base64
 import imageio
 import json
 import pickle
-
-import lib.pretrained_networks
-from lib.pretrained_networks import load_networks
-from lib.gan_utility_functions import generate_images_from_seeds
 from flask import Flask, jsonify, request
+import numpy as np
 
-pre_trained_gans = [
-    {
-        "name": "brains",
-        "url": '../input/gan_pre_trained/brains/network-snapshot-010368.pkl'
-    },
-    {
-        "name": "mask",
-        "url": '../input/gan_pre_trained/masks/network-snapshot-010450.pkl'
-    },
-    {
-        "name": "old_photos",
-        "url": '../input/gan_pre_trained/old_photos/network-snapshot-010491.pkl'
-    },
-    {
-        "name": "chinese",
-        "url": '../input/gan_pre_trained/portraits_chinois/network-snapshot-010397.pkl'
-    },
-    {
-        "name": "sneakers",
-        "url": '../input/gan_pre_trained/sneakers/network-snapshot-010696.pkl'
-    },
-    {
-        "name": "earth",
-        "url": '../input/gan_pre_trained/terre/network-snapshot-010163.pkl'
-    },
-]
-
-def loadPretrainedGan(gan_name):
-    for i, model in enumerate(pre_trained_gans):
-        if(gan_name == model["name"]):
-            print('Loading networks from "%s"...' % model["url"])
-            _G, _D, Gs = load_networks(model["url"])
-            noise_vars = [var for name, var in Gs.components.synthesis.vars.items() if name.startswith('noise')]
-
-def from_pil_to_base64_json(pil_image_list):
-    base64img_prefix = "data:image/png;base64,"
-    final_json = {"images":[]}
-
-    for i, image in enumerate(pil_image_list):
-      image.thumbnail((128,128), Image.ANTIALIAS)
-      buffered = BytesIO()
-      image.save(buffered, format="PNG")
-      img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
-      final_json["images"].append(base64img_prefix + img_str)
-
-    return final_json
+from difference_ratio import compareWithNeighborsFrom2dArray, lowestIntegerSquaredRoot
+from GenerateGanDatas import GenerateGanDatas
 
 app = Flask(__name__)
 # app.config["DEBUG"] = True
 
+GanObject = GenerateGanDatas("african-masks")
+
 @app.route('/listPretrainedGans')
 def listPretrainedGans():
-    return jsonify(pre_trained_gans)
+    print("ROUTE /listPretrainedGans")
+    return jsonify(GanObject.pre_trained_gans)
 
 @app.route('/randomImages')
 def randomImages():
+    print("ROUTE /randomImages")
     if 'gan_name' in request.args:
         gan_name = str(request.args['gan_name'])
     else:
@@ -86,26 +43,78 @@ def randomImages():
     else:
         return "Error: No number_of_images provided. Please specify it."    
     print(gan_name)
-    loadPretrainedGan(gan_name)
+    GanObject.load_network(gan_name)
     seeds = np.random.randint(10000000, size=number_of_images)
 
-    image_list_from_seed = generate_images_from_seeds(seeds, 0.7)
-    json_data = from_pil_to_base64_json(image_list_from_seed)
+    image_list_from_seed, zs = GanObject.get_images_from_seeds(0.7, seeds)
+    json_data = GanObject.from_pil_to_base64_json(image_list_from_seed)
+    json_data["seeds"] = seeds.tolist()
     
     return jsonify(json_data)
 
 @app.route('/get2dMapFromSeeds')
 def get2dMapFromSeeds():
+    print("ROUTE /get2dMapFromSeeds")
     if 'gan_name' in request.args:
         gan_name = str(request.args['gan_name'])
     else:
         return "Error: No gan_name provided. Please specify it."
     if 'seeds' in request.args:
-        seeds = request.args['seeds']
+        seeds = request.args.getlist('seeds')
     else:
-        return "Error: No seeds provided. Please specify it."    
+        return "Error: No seeds provided. Please specify it."
+    
+    
+    print("for " + gan_name)
+    GanObject.load_network(gan_name)
+    
+    seeds = list(map(int, seeds))
+    print("with seeds ->")
+    print(seeds)
 
+    image_list_from_seed, zs = GanObject.get_images_from_seeds(0.7, seeds)
+    
+    coords_to_test = [[0.701, 1.14],[1.16, 1.02],[1.23, 0.54],[0.71, 0.25],[0.22, 0.53],[0.29, 1.05]]
+    result = GanObject.getImagesPointsFromDataset(25, coords_to_test, zs)
+    
+    images = []
+    for i, image in enumerate(result):
+        images.append(np.array(image, dtype=np.float64).reshape(1,512))
+        
+    imgs = GanObject.get_images_from_zs(1.0, images)
+    
+    base64img_prefix = "data:image/png;base64,"
+    final_json = {
+        "baseImgLocations": coords_to_test,
+        "differenceRatios": [],
+        "images":[]
+    }
 
+    for i, image in enumerate(imgs):
+      print("Transforming into base64 image -> " + str(i))
+      image.thumbnail((256,256), Image.ANTIALIAS)
+      # print(image)
+
+      buffered = BytesIO()
+      image.save(buffered, format="PNG")
+      img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+      final_json["images"].append(base64img_prefix + img_str)
+
+    sizeOfDataSet = len(final_json["images"])
+    print(sizeOfDataSet)
+
+    # lineSize = 25
+    lineSize = lowestIntegerSquaredRoot(sizeOfDataSet)
+    
+    np_array = np.array(final_json["images"])
+    two_dimensional_array = np.reshape(np_array, (-1, int(lineSize)))
+
+    # pour chaque image 
+    for index, image in enumerate(final_json["images"]):
+        print("Getting differences for neighbors -> " + str(index) + " / " + str(sizeOfDataSet))
+        final_json["differenceRatios"].append(compareWithNeighborsFrom2dArray(two_dimensional_array, index, verbose=False))
+
+    return jsonify(final_json)
 
 # The following is for running command `python app.py` in local development, not required for serving on FloydHub.
 if __name__ == "__main__":

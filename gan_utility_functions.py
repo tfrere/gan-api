@@ -5,6 +5,7 @@ import dnnlib
 import dnnlib.tflib as tflib
 import re
 import sys
+import pickle
 from io import BytesIO
 import IPython.display
 import numpy as np
@@ -37,13 +38,11 @@ sneakers_network_pkl = '../input/gan_pre_trained/sneakers/network-snapshot-01069
 # earth
 earth_network_pkl = '../input/gan_pre_trained/terre/network-snapshot-010163.pkl'
 
-network_pkl = mask_network_pkl
+# network_pkl = mask_network_pkl
 
-print('Loading networks from "%s"...' % network_pkl)
-_G, _D, Gs = load_networks(network_pkl)
-noise_vars = [var for name, var in Gs.components.synthesis.vars.items() if name.startswith('noise')]
-
-
+# print('Loading networks from "%s"...' % network_pkl)
+# _G, _D, Gs = load_networks(network_pkl)
+# noise_vars = [var for name, var in Gs.components.synthesis.vars.items() if name.startswith('noise')]
 
 # Generates a list of images, based on a list of latent vectors (Z), and a list (or a single constant) of truncation_psi's.
 def generate_images_in_w_space(dlatents, truncation_psi):
@@ -61,7 +60,7 @@ def generate_images_in_w_space(dlatents, truncation_psi):
         imgs.append(PIL.Image.fromarray(row_images[0], 'RGB'))
     return imgs       
 
-def generate_images(zs, truncation_psi):
+def generate_images(zs, truncation_psi, Gs):
     Gs_kwargs = dnnlib.EasyDict()
     Gs_kwargs.output_transform = dict(func=tflib.convert_images_to_uint8, nchw_to_nhwc=True)
     Gs_kwargs.randomize_noise = False
@@ -86,38 +85,12 @@ def generate_zs_from_seeds(seeds):
     return zs
 
 # Generates a list of images, based on a list of seed for latent vectors (Z), and a list (or a single constant) of truncation_psi's.
-def generate_images_from_seeds(seeds, truncation_psi):
-    return generate_images(generate_zs_from_seeds(seeds), truncation_psi)
+def generate_images_from_seeds(seeds, truncation_psi, model_url):
+    stream = open(model_url, 'rb')
+    with stream:
+        G, D, Gs = pickle.load(stream, encoding='latin1')
+    return generate_images(generate_zs_from_seeds(seeds), truncation_psi, Gs)
 
-def saveImgs(imgs, location):
-  for idx, img in log_progress(enumerate(imgs), size = len(imgs), name="Saving images"):
-    file = location+ str(idx) + ".png"
-    img.save(file)
-
-def imshow(a, format='png', jpeg_fallback=True):
-  print(a)
-  a = np.asarray(a, dtype=np.uint8)
-  str_file = BytesIO()
-  PIL.Image.fromarray(a).save(str_file, format)
-  im_data = str_file.getvalue()
-  try:
-    disp = IPython.display.display(IPython.display.Image(im_data))
-  except IOError:
-    if jpeg_fallback and format != 'jpeg':
-      print ('Warning: image was too large to display in format "{}"; '
-             'trying jpeg instead.').format(format)
-      return imshow(a, format='jpeg')
-    else:
-      raise
-  return disp
-
-def showarray(a, fmt='png'):
-    a = np.uint8(a)
-    f = StringIO()
-    PIL.Image.fromarray(a).save(f, fmt)
-    IPython.display.display(IPython.display.Image(data=f.getvalue()))
-
-        
 def clamp(x, minimum, maximum):
     return max(minimum, min(x, maximum))
     
@@ -134,20 +107,6 @@ def drawLatent(image,latents,x,y,x2,y2, color=(255,0,0,100)):
     draw.line((mx,cy,mx,cy+h),fill=color)
   return PIL.Image.alpha_composite(image,buffer)
              
-  
-def createImageGrid(images, scale=0.25, rows=1):
-   w,h = images[0].size
-   w = int(w*scale)
-   h = int(h*scale)
-   height = rows*h
-   cols = ceil(len(images) / rows)
-   width = cols*w
-   canvas = PIL.Image.new('RGBA', (width,height), 'white')
-   for i,img in enumerate(images):
-     img = img.resize((w,h), PIL.Image.ANTIALIAS)
-     canvas.paste(img, (w*(i % cols), h*(i // cols))) 
-   return canvas
-
 def convertZtoW(latent, truncation_psi=0.7, truncation_cutoff=9):
   dlatent = Gs.components.mapping.run(latent, None) # [seed, layer, component]
   dlatent_avg = Gs.get_var('dlatent_avg') # [component]
@@ -163,62 +122,5 @@ def interpolate(zs, steps):
      fraction = index/float(steps) 
      out.append(zs[i+1]*fraction + zs[i]*(1-fraction))
    return out
-
-# Taken from https://github.com/alexanderkuk/log-progress
-def log_progress(sequence, every=1, size=None, name='Items'):
-    from ipywidgets import IntProgress, HTML, VBox
-    from IPython.display import display
-
-    is_iterator = False
-    if size is None:
-        try:
-            size = len(sequence)
-        except TypeError:
-            is_iterator = True
-    if size is not None:
-        if every is None:
-            if size <= 200:
-                every = 1
-            else:
-                every = int(size / 200)     # every 0.5%
-    else:
-        assert every is not None, 'sequence is iterator, set every'
-
-    if is_iterator:
-        progress = IntProgress(min=0, max=1, value=1)
-        progress.bar_style = 'info'
-    else:
-        progress = IntProgress(min=0, max=size, value=0)
-    label = HTML()
-    box = VBox(children=[label, progress])
-    display(box)
-
-    index = 0
-    try:
-        for index, record in enumerate(sequence, 1):
-            if index == 1 or index % every == 0:
-                if is_iterator:
-                    label.value = '{name}: {index} / ?'.format(
-                        name=name,
-                        index=index
-                    )
-                else:
-                    progress.value = index
-                    label.value = u'{name}: {index} / {size}'.format(
-                        name=name,
-                        index=index,
-                        size=size
-                    )
-            yield record
-    except:
-        progress.bar_style = 'danger'
-        raise
-    else:
-        progress.bar_style = 'success'
-        progress.value = index
-        label.value = "{name}: {index}".format(
-            name=name,
-            index=str(index or '?')
-        )
 
 print("Utility Functions loaded.")
