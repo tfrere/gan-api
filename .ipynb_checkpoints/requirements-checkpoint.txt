@@ -1,0 +1,5 @@
+tf version = 1.15.0
+
+CUDA version = 10.1
+
+

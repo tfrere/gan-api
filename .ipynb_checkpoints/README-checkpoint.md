@@ -1,25 +1,61 @@
-# Launch 
+# Start serving on floydhub
 
 floyd run --data tfrere/datasets/gan-pre-trained/2:input --mode serve
 
+
 # API 
 
-## List pretrained gans
+- /listPretrainedGans
+- /getRandomImages
+- /get2dMapFromSeeds
+- /getImageInterpolationFromSeeds
 
-'/listPretrainedGans'
+## ROUTE /listPretrainedGans
 
+List of pretrained gans
+
+### Params
+-
+
+### example
 curl -sS 'http://0.0.0.0:5000/listPretrainedGans'
 
 
-## Get a list of random images for a given gan
+## ROUTE /randomImages
 
-'/randomImages'
+Get a list of random images for a given gan
 
-curl -sS 'http://0.0.0.0:5000/randomImages?number_of_images=6&gan_name=old-photos'
+### Params
+- number_of_images
+- gan_name
+
+### example
+curl -sS 'http://0.0.0.0:5000/getRandomImages?number_of_images=6&gan_name=old-photos'
 
 
-## Get 625 images data sample for a given base images
+## ROUTE /get2dMapFromSeeds
 
-'/get2dMapFromSeeds'
+Get images data sample for a given base images
 
-curl -sS 'http://0.0.0.0:5000/get2dMapFromSeeds?gan_name=african-masks&size_of_canvas=25&seeds=123&seeds=1345&seeds=13453&seeds=134532&seeds=134532&seeds=13452321'
+### Params
+- number_of_images (squared root integer)
+- gan_name
+- seeds
+
+### example
+curl -sS 'http://0.0.0.0:5000/get2dMapFromSeeds?gan_name=african-masks&number_of_images=25&seeds=1&seeds=2&seeds=3&seeds=4&seeds=5&seeds=6'
+
+
+## ROUTE /generateImageInterpolationFromSeed
+
+Get image interpolation from seeds
+
+### Params
+- number_of_images
+- gan_name
+- seeds
+
+### example
+curl -sS 'http://0.0.0.0:5000/getImageInterpolationFromSeeds?gan_name=african-masks&number_of_images=10&seeds=1&seeds=2&seeds=3&seeds=4&seeds=5&seeds=6'
+
+

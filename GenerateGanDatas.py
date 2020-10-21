@@ -15,7 +15,6 @@ import math
 class GenerateGanDatas():
     def __init__(self, name):
         tflib.init_tf()
-        self.name = name
         self.pre_trained_gans = [
             {
                 "name": "brains",
@@ -46,7 +45,9 @@ class GenerateGanDatas():
                 "url": '../input/gan_pre_trained/terre/network-snapshot-010163.pkl'
             },
         ]
+        self.name = ""
         self.load_network(name)
+        self.name = name  
 
     def get_pretrained_gan_url_from_name(self, gan_name):
         for i, model in enumerate(self.pre_trained_gans):
@@ -61,7 +62,16 @@ class GenerateGanDatas():
             with stream:
                 self.G, self.D, self.Gs = pickle.load(stream, encoding='latin1')
             self.noise_vars = [var for name, var in self.Gs.components.synthesis.vars.items() if name.startswith('noise')]
+            self.name = gan_name
 
+    def generate_zs_from_seeds(self, seeds):
+        zs = []
+        for seed_idx, seed in enumerate(seeds):
+            rnd = np.random.RandomState(seed)
+            z = rnd.randn(1, *self.Gs.input_shape[1:]) # [minibatch, component]
+            zs.append(z)
+        return zs
+            
     @staticmethod
     def from_pil_to_base64_json(pil_image_list):
         base64img_prefix = "data:image/png;base64,"
@@ -113,7 +123,15 @@ class GenerateGanDatas():
             zs.append(z)
 
         return images_list, zs
-    
+
+    @staticmethod
+    def interpolate(zs, steps):
+       out = []
+       for i in range(len(zs)-1):
+        for index in range(steps):
+         fraction = index/float(steps) 
+         out.append(zs[i+1]*fraction + zs[i]*(1-fraction))
+       return out
 
     @staticmethod
     def softmax(x):
