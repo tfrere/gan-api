@@ -30,7 +30,7 @@ Get a list of random images for a given gan
 - gan_name
 
 ### example
-curl -sS 'http://0.0.0.0:5000/getRandomImages?number_of_images=6&gan_name=old-photos'
+curl -sS 'http://0.0.0.0:5000/getRandomImages?number_of_images=100&gan_name=earth' > 'getRandomImages?gan_name=earth&number_of_images=100.json'
 
 
 ## ROUTE /get2dMapFromSeeds
@@ -43,7 +43,7 @@ Get images data sample for a given base images
 - seeds
 
 ### example
-curl -sS 'http://0.0.0.0:5000/get2dMapFromSeeds?gan_name=african-masks&number_of_images=25&seeds=1&seeds=2&seeds=3&seeds=4&seeds=5&seeds=6'
+curl -sS 'http://0.0.0.0:5000/get2dMapFromSeeds?gan_name=chinese&number_of_images=625&seeds=1&seeds=2&seeds=3&seeds=4&seeds=5&seeds=6'
 
 
 ## ROUTE /generateImageInterpolationFromSeed

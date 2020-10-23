@@ -9,6 +9,7 @@ import numpy as np
 from math import ceil
 import base64
 import imageio
+from PIL import Image, ImageDraw, ImageChops, ImageStat
 import json
 from flask import Flask, jsonify, request
 
@@ -17,7 +18,14 @@ from GenerateGanDatas import GenerateGanDatas
 
 app = Flask(__name__)
 
+has_to_print = False
+
 print("Starting app.py")
+
+def printFile(name, data):
+    with open(str(name) + ".json", 'w') as outfile:
+        json.dump(data, outfile)
+        
 
 GanObject = GenerateGanDatas("african-masks")
 
@@ -25,6 +33,10 @@ GanObject = GenerateGanDatas("african-masks")
 @app.route('/listPretrainedGans')
 def listPretrainedGans():
     print("ROUTE /listPretrainedGans")
+    
+    if(has_to_print):
+        printFile(request.url[20:], GanObject.pre_trained_gans)
+        
     return jsonify(GanObject.pre_trained_gans)
 
 # ----------------------------------------------------
@@ -47,6 +59,9 @@ def randomImages():
     image_list_from_seed, zs = GanObject.get_images_from_seeds(0.7, seeds)
     json_data = GanObject.from_pil_to_base64_json(image_list_from_seed)
     json_data["seeds"] = seeds.tolist()
+    
+    if(has_to_print):
+        printFile(request.url[20:], json_data)
     
     return jsonify(json_data)
 
@@ -80,6 +95,9 @@ def generateImageInterpolationFromSeed():
     zs_interpolation = GanObject.interpolate(zs, number_of_images // (len(seeds) - 1))
     imgs = GanObject.get_images_from_zs(1.0, zs_interpolation)
     json_data = GanObject.from_pil_to_base64_json(imgs)
+    
+    if(has_to_print):
+        printFile(request.url[20:], json_data)
     
     return(jsonify(json_data))
 
@@ -152,8 +170,10 @@ def get2dMapFromSeeds():
     # for debugging purpose, we can hide images base64 hash to avoid flooding the shell
     # final_json["images"] = []
     
+    if(has_to_print):
+        printFile(request.url[20:], final_json)
+    
     return jsonify(final_json)
-
 
 # The following is for running command `python app.py` in local development, not required for serving on FloydHub.
 # ----------------------------------------------------

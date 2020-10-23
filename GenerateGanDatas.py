@@ -78,7 +78,7 @@ class GenerateGanDatas():
         final_json = {"images":[]}
 
         for i, image in enumerate(pil_image_list):
-          image.thumbnail((128,128), Image.ANTIALIAS)
+          image.thumbnail((512,512), Image.ANTIALIAS)
           buffered = BytesIO()
           image.save(buffered, format="PNG")
           img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
