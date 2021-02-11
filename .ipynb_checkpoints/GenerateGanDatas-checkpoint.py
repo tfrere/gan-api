@@ -11,7 +11,6 @@ import base64
 import json
 from io import BytesIO
 import math  
-#from tqdm import tqdm
 import random
 import glob
 import os 
