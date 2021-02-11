@@ -4,11 +4,9 @@ import dnnlib
 import dnnlib.tflib as tflib
 from dnnlib.tflib import custom_ops
 from io import BytesIO
-import IPython.display
 import numpy as np
 from math import ceil
 import base64
-import imageio
 from PIL import Image, ImageDraw, ImageChops, ImageStat
 import json
 from flask import Flask, jsonify, request
@@ -26,6 +24,20 @@ def printFile(name, data):
     with open(str(name) + ".json", 'w') as outfile:
         json.dump(data, outfile)
         
+# used in get2dmapfromseed to position 
+def circlepoints(points,radius,center, offset):
+    shape = []
+    slice = 2 * 3.14 / points
+    for i in range(points):
+        angle = slice * i
+        new_x = center[0] + radius*np.cos(angle)
+        new_y = center[1] + radius*np.sin(angle)
+
+        p = (new_x+offset,new_y+offset)
+        shape.append(p)
+
+    return shape
+
 
 GanObject = GenerateGanDatas("african-masks")
 
@@ -37,12 +49,17 @@ def listPretrainedGans():
     if(has_to_print):
         printFile(request.url[20:], GanObject.pre_trained_gans)
         
-    return jsonify(GanObject.pre_trained_gans)
+    json_data = GanObject.pre_trained_gans
+        
+    return jsonify(json_data)
 
 # ----------------------------------------------------
 @app.route('/getRandomImages')
 def randomImages():
     print("ROUTE /getRandomImages")
+    res = 256
+    if 'res' in request.args:
+        res = int(request.args['res'])
     if 'gan_name' in request.args:
         gan_name = str(request.args['gan_name'])
     else:
@@ -57,7 +74,7 @@ def randomImages():
     seeds = np.random.randint(10000000, size=number_of_images)
 
     image_list_from_seed, zs = GanObject.get_images_from_seeds(0.7, seeds)
-    json_data = GanObject.from_pil_to_base64_json(image_list_from_seed)
+    json_data = GanObject.from_pil_to_base64_json(image_list_from_seed, res=res)
     json_data["seeds"] = seeds.tolist()
     
     if(has_to_print):
@@ -69,6 +86,9 @@ def randomImages():
 @app.route('/getImageInterpolationFromSeeds')
 def generateImageInterpolationFromSeed():
     print("ROUTE /getImageInterpolationFromSeeds")
+    res = 256
+    if 'res' in request.args:
+        res = int(request.args['res'])
     if 'gan_name' in request.args:
         gan_name = str(request.args['gan_name'])
     else:
@@ -94,7 +114,8 @@ def generateImageInterpolationFromSeed():
     zs = GanObject.generate_zs_from_seeds(seeds)
     zs_interpolation = GanObject.interpolate(zs, number_of_images // (len(seeds) - 1))
     imgs = GanObject.get_images_from_zs(1.0, zs_interpolation)
-    json_data = GanObject.from_pil_to_base64_json(imgs)
+    json_data = GanObject.from_pil_to_base64_json(imgs, res)
+    json_data["seeds"] = seeds
     
     if(has_to_print):
         printFile(request.url[20:], json_data)
@@ -104,6 +125,9 @@ def generateImageInterpolationFromSeed():
 # ----------------------------------------------------
 @app.route('/get2dMapFromSeeds')
 def get2dMapFromSeeds():
+    res = 256
+    if 'res' in request.args:
+        res = int(request.args['res'])
     print("ROUTE /get2dMapFromSeeds")
     if 'gan_name' in request.args:
         gan_name = str(request.args['gan_name'])
@@ -125,12 +149,14 @@ def get2dMapFromSeeds():
     seeds = list(map(int, seeds))
     print("with seeds ->")
     print(seeds)
+    print(len(seeds))
     print("with number_of_images ->")
     print(number_of_images)
     
     image_list_from_seed, zs = GanObject.get_images_from_seeds(0.7, seeds)
     
-    coords_to_test = [[0.71, 1.14],[1.16, 1.02],[1.23, 0.54],[0.71, 0.25],[0.22, 0.53],[0.29, 1.05]]
+    coords_to_test = circlepoints(len(seeds),0.6,[0.6,0.6], 0.1)
+    
     result = GanObject.getImagesPointsFromDataset(number_of_images, coords_to_test, zs)
     
     images = []
@@ -148,7 +174,7 @@ def get2dMapFromSeeds():
 
     for i, image in enumerate(imgs):
       print("Transforming into base64 image -> " + str(i))
-      image.thumbnail((256,256), Image.ANTIALIAS)
+      image.thumbnail((res,res), Image.ANTIALIAS)
 
       buffered = BytesIO()
       image.save(buffered, format="PNG")

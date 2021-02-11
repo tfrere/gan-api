@@ -2,49 +2,34 @@ import argparse
 import numpy as np
 import dnnlib
 import dnnlib.tflib as tflib
+from dnnlib.tflib import custom_ops
 import re
 import sys
 import pickle
 from PIL import Image, ImageDraw, ImageChops, ImageStat
 import base64
-import imageio
 import json
 from io import BytesIO
 import math  
+#from tqdm import tqdm
+import random
+import glob
+import os 
+
 
 class GenerateGanDatas():
     def __init__(self, name):
         tflib.init_tf()
-        self.pre_trained_gans = [
-            {
-                "name": "brains",
-                "url": '../input/gan_pre_trained/brains/network-snapshot-010368.pkl'
-            },
-            {
-                "name": "african-masks",
-                "url": '../input/gan_pre_trained/masks/network-snapshot-010450.pkl'
-            },
-            {
-                "name": "new-african-masks",
-                "url": '../input/gan_pre_trained/new_masks/network-snapshot-010450.pkl'
-            },
-            {
-                "name": "old-photos",
-                "url": '../input/gan_pre_trained/old_photos/network-snapshot-010491.pkl'
-            },
-            {
-                "name": "chinese",
-                "url": '../input/gan_pre_trained/portraits_chinois/network-snapshot-010397.pkl'
-            },
-            {
-                "name": "sneakers",
-                "url": '../input/gan_pre_trained/sneakers/network-snapshot-010696.pkl'
-            },
-            {
-                "name": "earth",
-                "url": '../input/gan_pre_trained/terre/network-snapshot-010163.pkl'
-            },
-        ]
+        
+        #print(glob.glob("../input/gan_pre_trained/*"))
+        
+        ganFiles = glob.glob("../input/gan_pre_trained/*")
+        self.pre_trained_gans = []
+        
+        for gan in ganFiles:
+            self.pre_trained_gans.append({"name": os.path.basename(gan), "url":gan})
+        print(self.pre_trained_gans)
+        
         self.name = ""
         self.load_network(name)
         self.name = name  
@@ -56,7 +41,6 @@ class GenerateGanDatas():
 
     def load_network(self, gan_name):
         if(self.name != gan_name):
-            model_url = '../input/gan_pre_trained/terre/network-snapshot-010163.pkl'
             model_url = self.get_pretrained_gan_url_from_name(gan_name)
             stream = open(model_url, 'rb')
             with stream:
@@ -73,12 +57,12 @@ class GenerateGanDatas():
         return zs
             
     @staticmethod
-    def from_pil_to_base64_json(pil_image_list):
+    def from_pil_to_base64_json(pil_image_list, res=256):
         base64img_prefix = "data:image/png;base64,"
         final_json = {"images":[]}
 
         for i, image in enumerate(pil_image_list):
-          image.thumbnail((512,512), Image.ANTIALIAS)
+          image.thumbnail((res,res), Image.ANTIALIAS)
           buffered = BytesIO()
           image.save(buffered, format="PNG")
           img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
